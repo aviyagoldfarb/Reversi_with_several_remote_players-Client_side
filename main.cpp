@@ -21,7 +21,7 @@
 
 using namespace std;
 
-void serverResponseToStartCommand(int clientSocket){
+bool serverResponseToStartCommand(int clientSocket){
     int n, successOrFailure ;
     try {
         n = read(clientSocket, &successOrFailure, sizeof(successOrFailure));
@@ -33,11 +33,12 @@ void serverResponseToStartCommand(int clientSocket){
     }
     //check if the game was created
     if (successOrFailure == 1){
-        cout << "A new game was added" << endl;
+        cout << "A new game was created" << endl;
     }
     else if (successOrFailure == -1){
         cout << "A game with this name is already exist, please try again" << endl;
     }
+
 }
 
 void serverResponseToListGamesCommand(int clientSocket){
@@ -59,7 +60,7 @@ void serverResponseToListGamesCommand(int clientSocket){
     while (temp != NULL)
     {
         string tempStr(temp);
-        listOfStrGames.push_back(temp);
+        listOfStrGames.push_back(tempStr);
         temp = strtok (NULL, " ");
     }
     list<string>::iterator it;
@@ -106,7 +107,7 @@ void joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *
     }
 }
 
-void commandsSender(int clientSocket, string command){
+void commandsSender(int clientSocket, char* command){
     int n;
     // write the command argument to the socket
     n = write(clientSocket, &command, sizeof(command));
@@ -121,6 +122,7 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
         string commandStr;
         char command[50];
         memset(command, '\0', 50);
+        bool gameCreated;
         cout << "Please type one of the following commands:" << endl;
         cout << "1. start <name>" << endl;
         cout << "2. list_games" << endl;
@@ -133,8 +135,11 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
         memcpy(command, commandStr.c_str(), commandStr.size());
         if (commandStr.find("start") != -1){
             commandsSender(clientSocket, command);
-            serverResponseToStartCommand(clientSocket);
-
+            gameCreated = serverResponseToStartCommand(clientSocket);
+            if (gameCreated){
+                joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+                break;
+            }
         }
         else if (commandStr.find("list_games") != -1){
             commandsSender(clientSocket, command);
@@ -145,6 +150,7 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
             joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
             break;
         }
+        //???
         else if (commandStr.find("play") != -1){
             commandsSender(clientSocket, command);
         }
