@@ -21,10 +21,12 @@
 
 using namespace std;
 
-bool serverResponseToStartCommand(int clientSocket){
-    int n, successOrFailure ;
+bool serverResponse(int clientSocket){
+    char successOrFailure[3];
+    memset(successOrFailure, '\0', 3);
+    int n;
     try {
-        n = read(clientSocket, &successOrFailure, sizeof(successOrFailure));
+        n = read(clientSocket, successOrFailure, sizeof(char)*strlen(successOrFailure));
         if (n == -1) {
             throw "Error- failed on reading from socket";
         }
@@ -32,13 +34,14 @@ bool serverResponseToStartCommand(int clientSocket){
         cout << "Reason: " << msg << endl;
     }
     //check if the game was created
-    if (successOrFailure == 1){
+    if (strcmp(successOrFailure, "1") == 0){
         cout << "A new game was created" << endl;
+        return true;
     }
-    else if (successOrFailure == -1){
+    else if (strcmp(successOrFailure, "-1") == 0){
         cout << "A game with this name is already exist, please try again" << endl;
+        return false;
     }
-
 }
 
 void serverResponseToListGamesCommand(int clientSocket){
@@ -47,7 +50,7 @@ void serverResponseToListGamesCommand(int clientSocket){
     memset(listOfGames, '\0', 250);
     list<string> listOfStrGames;
     try {
-        n = read(clientSocket, &listOfGames, sizeof(listOfGames));
+        n = read(clientSocket, &listOfGames, sizeof(char)*strlen(listOfGames));
         if (n == -1) {
             throw "Error- failed on reading from socket";
         }
@@ -110,7 +113,7 @@ void joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *
 void commandsSender(int clientSocket, char* command){
     int n;
     // write the command argument to the socket
-    n = write(clientSocket, &command, sizeof(command));
+    n = write(clientSocket, command, sizeof(char)*strlen(command));
     if (n == -1) {
         throw "Error in writing command to socket";
     }
@@ -122,7 +125,7 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
         string commandStr;
         char command[50];
         memset(command, '\0', 50);
-        bool gameCreated;
+        bool gameCreated, joinedGame;
         cout << "Please type one of the following commands:" << endl;
         cout << "1. start <name>" << endl;
         cout << "2. list_games" << endl;
@@ -135,7 +138,7 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
         memcpy(command, commandStr.c_str(), commandStr.size());
         if (commandStr.find("start") != -1){
             commandsSender(clientSocket, command);
-            gameCreated = serverResponseToStartCommand(clientSocket);
+            gameCreated = serverResponse(clientSocket);
             if (gameCreated){
                 joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
                 break;
@@ -147,8 +150,11 @@ void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, Abs
         }
         else if (commandStr.find("join") != -1){
             commandsSender(clientSocket, command);
-            joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
-            break;
+            joinedGame = serverResponse(clientSocket);
+            if (joinedGame){
+                joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+                break;
+            }
         }
         //???
         else if (commandStr.find("play") != -1){
