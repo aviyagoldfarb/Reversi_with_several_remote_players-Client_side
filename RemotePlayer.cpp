@@ -73,18 +73,25 @@ int RemotePlayer::connectToServer() {
     return this->clientSocket;
 }
 
-void RemotePlayer::sendCell(int x, int y) {
+int RemotePlayer::sendCell(int x, int y) {
     int n;
     // write the x coordinate argument to the socket
     n = write(clientSocket, &x, sizeof(x));
     if (n == -1) {
         throw "Error in writing the cell to socket";
     }
+    if (n == 0) {
+        return -1;
+    }
     // write the y coordinate argument to the socket
     n = write(clientSocket, &y, sizeof(y));
     if (n == -1) {
         throw "Error in writing the cell to socket";
     }
+    if (n == 0) {
+        return -1;
+    }
+    return 1;
 }
 
 Point RemotePlayer::receiveCell() {

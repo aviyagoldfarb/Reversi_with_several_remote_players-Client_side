@@ -42,7 +42,7 @@ void RemoteEnemyGameFlow::playTheGame() {
     //create a vector that will get the return value of possibleMoves function
     vector<Point> possibleMovesVector;
     int x, y;
-
+    int retval;
     Point receivedCell(0, 0);
 
     //initialize the turns
@@ -70,9 +70,14 @@ void RemoteEnemyGameFlow::playTheGame() {
                 try {
                     //down cast
                     RemotePlayer *demoRemotePlayer = static_cast<RemotePlayer *>(this->nextTurn);
-                    demoRemotePlayer->sendCell(0, 0);
+                    retval = demoRemotePlayer->sendCell(0, 0);
                 } catch (const char *msg) {
                     cout << "Failed to send the new cell to server. Reason: " << msg << endl;
+                }
+                if (retval == -1){
+                    cout << "Server disconnected, the game forces to end" << endl;
+                    cout << endl;
+                    return;
                 }
 
                 this->setNextTurn();
@@ -116,9 +121,14 @@ void RemoteEnemyGameFlow::playTheGame() {
             try {
                 //down cast
                 RemotePlayer *demoRemotePlayer = static_cast<RemotePlayer *>(this->nextTurn);
-                demoRemotePlayer->sendCell(x, y);
+                retval = demoRemotePlayer->sendCell(x, y);
             } catch (const char *msg) {
                 cout << "Failed to send the new cell to server. Reason: " << msg << endl;
+            }
+            if (retval == -1){
+                cout << "Server disconnected, the game forces to end" << endl;
+                cout << endl;
+                return;
             }
 
         }
@@ -161,9 +171,14 @@ void RemoteEnemyGameFlow::playTheGame() {
         try {
             //down cast
             RemotePlayer *demoRemotePlayer = static_cast<RemotePlayer *>(this->turn);
-            demoRemotePlayer->sendCell(-1, -1);
+            retval = demoRemotePlayer->sendCell(-1, -1);
         } catch (const char *msg) {
             cout << "Failed to send the message about the end of the game. Reason: " << msg << endl;
+        }
+        if (retval == -1){
+            cout << "Server disconnected, the game forces to end" << endl;
+            cout << endl;
+            return;
         }
     }
     //printing the board using printGameBoard function from DisplayGameOnConsole class

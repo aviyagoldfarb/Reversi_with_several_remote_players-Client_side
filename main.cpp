@@ -238,6 +238,10 @@ int createRemoteEnemyGameFlow(Player **blackPlayer, Player **whitePlayer, Abstra
     }
 
     retval = typeAndSendCommandsToServer(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, &client, clientSocket);
+    if(retval == -1){
+        close(clientSocket);
+        delete client;
+    }
     return retval;
 }
 

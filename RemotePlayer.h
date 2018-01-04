@@ -57,7 +57,7 @@ public:
      * @param x coordinate
      * @param y coordinate
      */
-    void sendCell(int x, int y);
+    int sendCell(int x, int y);
     /**
      * receive cell from the server
      * @return
