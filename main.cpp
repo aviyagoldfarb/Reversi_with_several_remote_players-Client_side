@@ -19,45 +19,55 @@
 #include <string>
 #include <list>
 
+#define  MAX_LIST_OF_GAMES_BUFFER 250
+#define  MAX_COMMAND_BUFFER 50
+
 using namespace std;
 
-bool serverResponse(int clientSocket){
-    char successOrFailure[3];
-    memset(successOrFailure, '\0', 3);
+int serverResponse(int clientSocket){
+    int successOrFailure;
+
     int n;
     try {
-        n = read(clientSocket, successOrFailure, sizeof(char)*strlen(successOrFailure));
+        n = read(clientSocket, &successOrFailure, sizeof(successOrFailure));
         if (n == -1) {
             throw "Error- failed on reading from socket";
         }
     } catch(const char *msg) {
         cout << "Reason: " << msg << endl;
     }
-    //check if the game was created
-    if (strcmp(successOrFailure, "1") == 0){
-        cout << "A new game was created" << endl;
-        return true;
+    if (n == 0) {
+        cout << "Server disconnected, the game forces to end" << endl;
+        return -1;
     }
-    else if (strcmp(successOrFailure, "-1") == 0){
-        cout << "A game with this name is already exist, please try again" << endl;
-        return false;
+    //check if the game was created
+    if (successOrFailure == 1){
+        cout << "The command was executed successfully" << endl;
+        return 1;
+    }
+    else if (successOrFailure == -1){
+        cout << "Failed on executing command" << endl;
+        return 0;
     }
 }
 
-void serverResponseToListGamesCommand(int clientSocket){
+int serverResponseToListGamesCommand(int clientSocket){
     int n;
-    char listOfGames[250];
-    memset(listOfGames, '\0', 250);
+    char listOfGames[MAX_LIST_OF_GAMES_BUFFER];
+    memset(listOfGames, '\0', MAX_LIST_OF_GAMES_BUFFER);
     list<string> listOfStrGames;
     try {
-        n = read(clientSocket, &listOfGames, sizeof(char)*strlen(listOfGames));
+        n = read(clientSocket, listOfGames, MAX_LIST_OF_GAMES_BUFFER);
         if (n == -1) {
             throw "Error- failed on reading from socket";
         }
     } catch(const char *msg) {
         cout << "Reason: " << msg << endl;
     }
-
+    if (n == 0) {
+        cout << "Server disconnected, the game forces to end" << endl;
+        return -1;
+    }
     char *temp;
     temp = strtok (listOfGames," ");
     while (temp != NULL)
@@ -66,29 +76,41 @@ void serverResponseToListGamesCommand(int clientSocket){
         listOfStrGames.push_back(tempStr);
         temp = strtok (NULL, " ");
     }
-    list<string>::iterator it;
-    cout << "The current optional games are:" << endl;
-    for (it = listOfStrGames.begin(); it != listOfStrGames.end(); it++){
-        cout << *it << endl;
+    if(listOfStrGames.size() == 0){
+        cout << "There are no optional games" << endl;
+        cout << endl;
     }
-
+    else{
+        list<string>::iterator it;
+        cout << "The current optional games are:" << endl;
+        for (it = listOfStrGames.begin(); it != listOfStrGames.end(); it++){
+            cout << *it << endl;
+        }
+        cout << endl;
+    }
+    return 1;
 }
 
 //in case that the player sent the command 'join'?
-void joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
+int joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
                  DisplayGame *displayGameOnConsole, GameFlow **gameFlow, RemotePlayer **client, int clientSocket){
-    int n, myNumberColor;
+    int n;
+    int myNumberColor = 0;
+
     try {
         n = read(clientSocket, &myNumberColor, sizeof(myNumberColor));
         if (n == -1) {
             throw "Error- failed on reading number of player from socket";
         }
-    } catch(const char *msg) {
+    } catch (const char *msg) {
         cout << "Reason: " << msg << endl;
+    }
+    if (n == 0) {
+        cout << "Server disconnected, the game forces to end" << endl;
+        return -1;
     }
     //check the 'color' (sign) of the player who plays in this computer
     if (myNumberColor == 1) {
-        cout << "Waiting for the other player to join..." << endl;
         cout << endl;
         cout << "You are the black player X." << endl;
         cout << endl;
@@ -96,7 +118,7 @@ void joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *
         (*client)->setPlayerSign(WHITE);
         *whitePlayer = *client;
         *gameFlow = new RemoteEnemyGameFlow(*blackPlayer, *whitePlayer, gameLogic, displayGameOnConsole);
-        return;
+        return 1;
     }
     if (myNumberColor == 2) {
         cout << endl;
@@ -106,69 +128,93 @@ void joinAndPlay(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *
         (*client)->setPlayerSign(BLACK);
         *blackPlayer = *client;
         *gameFlow = new RemoteEnemyGameFlow(*whitePlayer, *blackPlayer, gameLogic, displayGameOnConsole);
-        return;
+        return 1;
     }
 }
 
 void commandsSender(int clientSocket, char* command){
     int n;
     // write the command argument to the socket
-    n = write(clientSocket, command, sizeof(char)*strlen(command));
+    n = write(clientSocket, command, strlen(command));
     if (n == -1) {
         throw "Error in writing command to socket";
     }
 }
 
-void typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
+int typeAndSendCommandsToServer(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
                           DisplayGame *displayGameOnConsole, GameFlow **gameFlow, RemotePlayer **client, int clientSocket){
+    int index = 0;
     do {
         string commandStr;
-        char command[50];
-        memset(command, '\0', 50);
-        bool gameCreated, joinedGame;
+        char command[MAX_COMMAND_BUFFER];
+        memset(command, '\0', MAX_COMMAND_BUFFER);
+        int retval;
         cout << "Please type one of the following commands:" << endl;
         cout << "1. start <name>" << endl;
         cout << "2. list_games" << endl;
         cout << "3. join <name>" << endl;
-        cout << "4. play <X> <Y>" << endl;
-        cout << "5. close <name>" << endl;
 
         //wait for the client to type one of the commands
+        string dummy;
+        if (index == 0){
+            getline(cin, dummy);
+        }
+
         getline(cin, commandStr);
         memcpy(command, commandStr.c_str(), commandStr.size());
         if (commandStr.find("start") != -1){
             commandsSender(clientSocket, command);
-            gameCreated = serverResponse(clientSocket);
-            if (gameCreated){
-                joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+            retval = serverResponse(clientSocket);
+            if (retval == 1){
+                cout << "Waiting for another player to join" << endl;
+                retval = joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+                if (retval == -1){
+                    return -1;
+                }
                 break;
             }
+            else if (retval == 0){
+                cout << "There is already a game with this name, please restart the program" << endl;
+                return -1;
+            }
+            else if (retval == -1){
+                return -1;
+            }
+
         }
         else if (commandStr.find("list_games") != -1){
             commandsSender(clientSocket, command);
-            serverResponseToListGamesCommand(clientSocket);
+            retval = serverResponseToListGamesCommand(clientSocket);
+            if (retval == -1){
+                return -1;
+            }
         }
         else if (commandStr.find("join") != -1){
             commandsSender(clientSocket, command);
-            joinedGame = serverResponse(clientSocket);
-            if (joinedGame){
-                joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+            retval = serverResponse(clientSocket);
+            if (retval == 1){
+                retval = joinAndPlay(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, client, clientSocket);
+                if (retval == -1){
+                    return -1;
+                }
                 break;
             }
+            else if (retval == 0){
+                cout << "There is no such game with this name, please restart the program" << endl;
+                return -1;
+            }
+            else if (retval == -1){
+                return -1;
+            }
         }
-        //???
-        else if (commandStr.find("play") != -1){
-            commandsSender(clientSocket, command);
-        }
-        else if (commandStr.find("close") != -1){
-            commandsSender(clientSocket, command);
-        }
+        index++;
     } while(true);
-    return;
+    return 1;
 }
 
-void createRemoteEnemyGameFlow(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
+int createRemoteEnemyGameFlow(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic,
                                DisplayGame *displayGameOnConsole, GameFlow **gameFlow) {
+    int retval;
     //read the ip and the port from the configuration file
     string ip;
     int port;
@@ -191,10 +237,12 @@ void createRemoteEnemyGameFlow(Player **blackPlayer, Player **whitePlayer, Abstr
         exit(-1);
     }
 
-    typeAndSendCommandsToServer(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, &client, clientSocket);
+    retval = typeAndSendCommandsToServer(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow, &client, clientSocket);
+    return retval;
 }
 
-void gameMenu(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic, DisplayGame *displayGameOnConsole, GameFlow **gameFlow){
+int gameMenu(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gameLogic, DisplayGame *displayGameOnConsole, GameFlow **gameFlow){
+    int retval;
     char playerInput;
     cout << "Please choose your enemy:" << endl;
     cout << "1. Human Player (press H)" << endl;
@@ -224,14 +272,15 @@ void gameMenu(Player **blackPlayer, Player **whitePlayer, AbstractGameLogic *gam
         case 'r':
             {
                 //the player choose a remote player as enemy
-                createRemoteEnemyGameFlow(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow);
-                break;
+                retval = createRemoteEnemyGameFlow(blackPlayer, whitePlayer, gameLogic, displayGameOnConsole, gameFlow);
+                return retval;
             }
     }
+    return 1;
 }
 
 int main() {
-
+    int retval;
     //creating an instance of Board object
     Board *board = new Board();
     // Player *blackPlayer = new HumanPlayer(BLACK);
@@ -241,22 +290,26 @@ int main() {
     DisplayGame *displayGameOnConsole = new DisplayGameOnConsole(board);
     GameFlow *gameFlow;
 
-    gameMenu(&blackPlayer, &whitePlayer, gameLogic, displayGameOnConsole, &gameFlow);
+    retval = gameMenu(&blackPlayer, &whitePlayer, gameLogic, displayGameOnConsole, &gameFlow);
 
-    gameFlow->playTheGame();
+    if (retval == 1){
+        gameFlow->playTheGame();
+        delete blackPlayer;
+        delete whitePlayer;
+        delete gameFlow;
+    }
 
     //delete created objects
 
     /*we put 'delete board' in comment because in the current implementation the board is
     deleted within the 'GameLogic' destructor*/
+
     //delete board;
-    delete blackPlayer;
-    delete whitePlayer;
+    //delete blackPlayer;
+    //delete whitePlayer;
     //deletes the board as well
     delete gameLogic;
     delete displayGameOnConsole;
-    delete gameFlow;
+    //delete gameFlow;
     return 0;
 }
-
-

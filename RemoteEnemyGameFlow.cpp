@@ -5,7 +5,6 @@
 #include "RemotePlayer.h"
 #include "RemoteEnemyGameFlow.h"
 
-
 RemoteEnemyGameFlow::RemoteEnemyGameFlow(Player *mySelfPlayer, Player *remoteEnemyPlayer, AbstractGameLogic *gameLogic, DisplayGame *displayGameOnConsole) :
         GameFlow(mySelfPlayer, remoteEnemyPlayer, gameLogic, displayGameOnConsole), mySelfPlayer(mySelfPlayer), remoteEnemyPlayer(remoteEnemyPlayer){
     if (mySelfPlayer->getPlayerSign() == BLACK){
@@ -134,6 +133,12 @@ void RemoteEnemyGameFlow::playTheGame() {
             } catch (const char *msg) {
                 cout << "Failed to receive the new cell from server. Reason: " << msg << endl;
             }
+            //if the received cell is (-2, -2) it means that the server disconnected
+            if (receivedCell.getX() == -2 && receivedCell.getY() == -2){
+                cout << "Server disconnected, the game forces to end" << endl;
+                cout << endl;
+                return;
+            }
             //if the received cell is (0, 0) do nothing
             if (receivedCell.getX() != 0 && receivedCell.getY() != 0){
                 gameLogic->moveMaker(receivedCell, this->turn, this->nextTurn);
@@ -181,5 +186,3 @@ void RemoteEnemyGameFlow::playTheGame() {
 
 RemoteEnemyGameFlow::~RemoteEnemyGameFlow() {
 }
-
-

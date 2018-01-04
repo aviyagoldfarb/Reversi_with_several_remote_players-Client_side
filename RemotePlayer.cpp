@@ -37,7 +37,7 @@ void RemotePlayer::setPlayerScore(int addToPlayerScore) {
 }
 
 RemotePlayer::~RemotePlayer() {
-
+    close(this->clientSocket);
 }
 
 int RemotePlayer::connectToServer() {
@@ -95,14 +95,19 @@ Point RemotePlayer::receiveCell() {
     if (n == -1) {
         throw "Error reading result from socket";
     }
+    if (n == 0) {
+        Point receivedCell(-2,-2);
+        return receivedCell;
+    }
     // read the y coordinate argument from the socket
     n = read(clientSocket, &y, sizeof(y));
     if (n == -1) {
         throw "Error reading result from socket";
     }
+    if (n == 0) {
+        Point receivedCell(-2,-2);
+        return receivedCell;
+    }
     Point receivedCell(x, y);
     return receivedCell;
 }
-
-
-
